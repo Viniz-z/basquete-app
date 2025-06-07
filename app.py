@@ -28,17 +28,48 @@ with col2:
 @st.cache_data(ttl=600)
 def buscar_jogos_basquete(time_nome):
     busca = requests.get(f"https://api.sofascore.com/api/v1/team/search?q={time_nome}")
-    dados = busca.json()
-    if not dados.get('teams'):
+    st.write("🔍 Resposta da API (busca de time):", busca.status_code)
+    try:
+        dados = busca.json()
+    except Exception as e:
+        st.error(f"Erro ao converter JSON: {e}")
         return None
+
+    st.write("📦 JSON retornado da busca:", dados)
+
+    if not dados.get('teams'):
+        st.warning(f"❌ Nenhum time encontrado para '{time_nome}'")
+        return None
+
     time_id = dados['teams'][0]['id']
-    eventos = requests.get(f"https://api.sofascore.com/api/v1/team/{time_id}/events/last/0").json().get("events", [])
+    st.write("🏀 ID do time encontrado:", time_id)
+
+    eventos_response = requests.get(f"https://api.sofascore.com/api/v1/team/{time_id}/events/last/0")
+    st.write("🔍 Resposta da API (eventos):", eventos_response.status_code)
+    try:
+        eventos = eventos_response.json().get("events", [])
+    except Exception as e:
+        st.error(f"Erro ao converter JSON dos eventos: {e}")
+        return None
+
+    st.write(f"🎮 Eventos recebidos para '{time_nome}': {len(eventos)}")
+    if not eventos:
+        st.warning(f"❌ Sem jogos recentes para '{time_nome}'")
+        return None
+
     resultados = []
     for evento in eventos[:5]:
         eid = evento['id']
         oponente = evento['opponents'][1]['name'] if evento['opponents'][0]['name'].lower() == time_nome.lower() else evento['opponents'][0]['name']
         stats_url = f"https://api.sofascore.com/api/v1/event/{eid}/statistics"
-        stats = requests.get(stats_url).json()
+        stats_response = requests.get(stats_url)
+        st.write(f"🔍 Resposta da API (stats evento {eid}):", stats_response.status_code)
+        try:
+            stats = stats_response.json()
+        except Exception as e:
+            st.error(f"Erro ao converter JSON das estatísticas do evento {eid}: {e}")
+            continue
+
         quarters = {}
         for stat in stats.get("periods", []):
             if "homeScore" in stat:
