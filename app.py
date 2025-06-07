@@ -2,56 +2,70 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(page_title="Comparador Manual de Times", layout="centered")
-st.markdown("<h1 style='text-align: center; color: #00ffe7;'>🏀 Comparador Manual de Times</h1>", unsafe_allow_html=True)
+st.set_page_config(page_title="P-E", layout="centered")
 
-st.markdown("Insira os nomes dos times e os pontos por quarto:")
+# Estilo personalizado
+st.markdown("""
+    <style>
+        body, .main { background-color: #0f1117; color: white; }
+        .title {
+            font-size: 3.5em;
+            font-family: 'Orbitron', sans-serif;
+            color: #00ffe7;
+            text-align: center;
+            margin-top: 30px;
+            margin-bottom: 10px;
+        }
+        .stNumberInput > div > input {
+            width: 55px;
+            height: 38px;
+            text-align: center;
+            font-size: 16px;
+            background-color: #1e1e2f;
+            border: none;
+            border-radius: 8px;
+            color: white;
+        }
+        .stTextInput > div > input {
+            text-align: center;
+            font-size: 16px;
+            border-radius: 8px;
+            background-color: #1e1e2f;
+            color: white;
+        }
+        label, h3, h2, h1, .block-container > div > div > div > div > p {
+            display: none !important;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+""", unsafe_allow_html=True)
 
+# Título
+st.markdown("<div class='title'>P-E</div>", unsafe_allow_html=True)
+
+# Entrada de nomes dos times
 col1, col2 = st.columns(2)
-
 with col1:
-    time1 = st.text_input("Nome do Time 1", "Flamengo")
-    q1_1 = st.number_input("Q1 - Time 1", min_value=0, step=1)
-    q2_1 = st.number_input("Q2 - Time 1", min_value=0, step=1)
-    q3_1 = st.number_input("Q3 - Time 1", min_value=0, step=1)
-    q4_1 = st.number_input("Q4 - Time 1", min_value=0, step=1)
-
+    time1 = st.text_input("", "Time 1")
 with col2:
-    time2 = st.text_input("Nome do Time 2", "Botafogo")
-    q1_2 = st.number_input("Q1 - Time 2", min_value=0, step=1)
-    q2_2 = st.number_input("Q2 - Time 2", min_value=0, step=1)
-    q3_2 = st.number_input("Q3 - Time 2", min_value=0, step=1)
-    q4_2 = st.number_input("Q4 - Time 2", min_value=0, step=1)
+    time2 = st.text_input("", "Time 2")
 
-if st.button("🔍 Comparar Times"):
-    df = pd.DataFrame([
-        {"Time": time1, "Quarto": "Q1", "Pontos": q1_1},
-        {"Time": time1, "Quarto": "Q2", "Pontos": q2_1},
-        {"Time": time1, "Quarto": "Q3", "Pontos": q3_1},
-        {"Time": time1, "Quarto": "Q4", "Pontos": q4_1},
-        {"Time": time2, "Quarto": "Q1", "Pontos": q1_2},
-        {"Time": time2, "Quarto": "Q2", "Pontos": q2_2},
-        {"Time": time2, "Quarto": "Q3", "Pontos": q3_2},
-        {"Time": time2, "Quarto": "Q4", "Pontos": q4_2},
-    ])
+quartos = ["Q1", "Q2", "Q3", "Q4"]
+data = []
 
-    # Gráfico
-    st.markdown("### 📊 Pontos por Quarto")
-    fig = px.bar(df, x="Quarto", y="Pontos", color="Time", barmode="group")
-    st.plotly_chart(fig)
+# Inputs para os pontos
+for q in quartos:
+    col1, col2, col3 = st.columns([1.5, 1, 1.5])
+    with col1:
+        p1 = st.number_input("", min_value=0, max_value=50, step=1, key=f"{q}_1")
+    with col2:
+        st.markdown(f"<p style='text-align:center; font-size:18px; color:#00ffe7'>{q}</p>", unsafe_allow_html=True)
+    with col3:
+        p2 = st.number_input("", min_value=0, max_value=50, step=1, key=f"{q}_2")
+    data.append({"Quarto": q, "Time": time1, "Pontos": p1})
+    data.append({"Quarto": q, "Time": time2, "Pontos": p2})
 
-    # Média (neste caso é só os próprios dados, mas mantemos estrutura)
-    media = df.groupby("Time")["Pontos"].mean().reset_index()
-    st.markdown("### 🧮 Média de Pontos por Quarto")
-    st.dataframe(media)
-
-    # Análise simples
-    st.markdown("### 🤖 Insight")
-    if q1_1 > q4_1:
-        st.write(f"➡️ **{time1}** começa forte e perde força no final.")
-    elif q4_1 > q1_1:
-        st.write(f"➡️ **{time1}** melhora ao longo do jogo.")
-    if q1_2 > q4_2:
-        st.write(f"➡️ **{time2}** começa forte e perde força no final.")
-    elif q4_2 > q1_2:
-        st.write(f"➡️ **{time2}** melhora ao longo do jogo.")
+# Gráfico
+df = pd.DataFrame(data)
+fig = px.bar(df, x="Quarto", y="Pontos", color="Time", barmode="group")
+st.plotly_chart(fig, use_container_width=True)
