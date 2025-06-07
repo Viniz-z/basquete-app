@@ -1,116 +1,57 @@
 import streamlit as st
-import requests
 import pandas as pd
 import plotly.express as px
-import time
 
-st.set_page_config(page_title="P-E: Comparador de Times de Basquete", layout="centered")
-st.markdown("""
-    <style>
-        body { background-color: #0f1117; color: white; }
-        .main { background-color: #0f1117; }
-        .title { font-size: 3em; font-family: 'Orbitron', sans-serif; color: #00ffe7; text-align: center; margin: 20px 0; }
-        .stButton>button { background-color: #1e1e2f; color: white; font-weight: bold; border-radius: 8px; }
-        label { font-weight: bold; }
-    </style>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-""", unsafe_allow_html=True)
+st.set_page_config(page_title="Comparador Manual de Times", layout="centered")
+st.markdown("<h1 style='text-align: center; color: #00ffe7;'>🏀 Comparador Manual de Times</h1>", unsafe_allow_html=True)
 
-st.markdown("<div class='title'>P-E: Comparador de Times de Basquete</div>", unsafe_allow_html=True)
-st.markdown("### Digite o nome dos dois times para comparar o desempenho em jogos anteriores.")
+st.markdown("Insira os nomes dos times e os pontos por quarto:")
 
 col1, col2 = st.columns(2)
+
 with col1:
-    time1 = st.text_input("🔍 Time 1")
+    time1 = st.text_input("Nome do Time 1", "Flamengo")
+    q1_1 = st.number_input("Q1 - Time 1", min_value=0, step=1)
+    q2_1 = st.number_input("Q2 - Time 1", min_value=0, step=1)
+    q3_1 = st.number_input("Q3 - Time 1", min_value=0, step=1)
+    q4_1 = st.number_input("Q4 - Time 1", min_value=0, step=1)
+
 with col2:
-    time2 = st.text_input("🔍 Time 2")
+    time2 = st.text_input("Nome do Time 2", "Botafogo")
+    q1_2 = st.number_input("Q1 - Time 2", min_value=0, step=1)
+    q2_2 = st.number_input("Q2 - Time 2", min_value=0, step=1)
+    q3_2 = st.number_input("Q3 - Time 2", min_value=0, step=1)
+    q4_2 = st.number_input("Q4 - Time 2", min_value=0, step=1)
 
-@st.cache_data(ttl=600)
-def buscar_jogos_basquete(time_nome):
-    busca = requests.get(f"https://api.sofascore.com/api/v1/team/search?q={time_nome}")
-    st.write("🔍 Resposta da API (busca de time):", busca.status_code)
-    try:
-        dados = busca.json()
-    except Exception as e:
-        st.error(f"Erro ao converter JSON: {e}")
-        return None
+if st.button("🔍 Comparar Times"):
+    df = pd.DataFrame([
+        {"Time": time1, "Quarto": "Q1", "Pontos": q1_1},
+        {"Time": time1, "Quarto": "Q2", "Pontos": q2_1},
+        {"Time": time1, "Quarto": "Q3", "Pontos": q3_1},
+        {"Time": time1, "Quarto": "Q4", "Pontos": q4_1},
+        {"Time": time2, "Quarto": "Q1", "Pontos": q1_2},
+        {"Time": time2, "Quarto": "Q2", "Pontos": q2_2},
+        {"Time": time2, "Quarto": "Q3", "Pontos": q3_2},
+        {"Time": time2, "Quarto": "Q4", "Pontos": q4_2},
+    ])
 
-    st.write("📦 JSON retornado da busca:", dados)
+    # Gráfico
+    st.markdown("### 📊 Pontos por Quarto")
+    fig = px.bar(df, x="Quarto", y="Pontos", color="Time", barmode="group")
+    st.plotly_chart(fig)
 
-    if not dados.get('teams'):
-        st.warning(f"❌ Nenhum time encontrado para '{time_nome}'")
-        return None
-
-    time_id = dados['teams'][0]['id']
-    st.write("🏀 ID do time encontrado:", time_id)
-
-    eventos_response = requests.get(f"https://api.sofascore.com/api/v1/team/{time_id}/events/last/0")
-    st.write("🔍 Resposta da API (eventos):", eventos_response.status_code)
-    try:
-        eventos = eventos_response.json().get("events", [])
-    except Exception as e:
-        st.error(f"Erro ao converter JSON dos eventos: {e}")
-        return None
-
-    st.write(f"🎮 Eventos recebidos para '{time_nome}': {len(eventos)}")
-    if not eventos:
-        st.warning(f"❌ Sem jogos recentes para '{time_nome}'")
-        return None
-
-    resultados = []
-    for evento in eventos[:5]:
-        eid = evento['id']
-        oponente = evento['opponents'][1]['name'] if evento['opponents'][0]['name'].lower() == time_nome.lower() else evento['opponents'][0]['name']
-        stats_url = f"https://api.sofascore.com/api/v1/event/{eid}/statistics"
-        stats_response = requests.get(stats_url)
-        st.write(f"🔍 Resposta da API (stats evento {eid}):", stats_response.status_code)
-        try:
-            stats = stats_response.json()
-        except Exception as e:
-            st.error(f"Erro ao converter JSON das estatísticas do evento {eid}: {e}")
-            continue
-
-        quarters = {}
-        for stat in stats.get("periods", []):
-            if "homeScore" in stat:
-                quarters[f"Q{stat['number']}"] = stat["homeScore"]["current"]
-        resultados.append({
-            "oponente": oponente,
-            "timestamp": evento['startTimestamp'],
-            "quartos": quarters
-        })
-        time.sleep(1)
-    return resultados
-
-def comparar_times(t1, t2):
-    jogos1 = buscar_jogos_basquete(t1)
-    jogos2 = buscar_jogos_basquete(t2)
-
-    if not jogos1 or not jogos2:
-        st.warning("Não foi possível encontrar dados suficientes para ambos os times.")
-        return
-
-    df1 = []
-    for j in jogos1:
-        for q, pts in j['quartos'].items():
-            df1.append({"Time": t1, "Jogo vs": j["oponente"], "Quarto": q, "Pontos": pts})
-    df2 = []
-    for j in jogos2:
-        for q, pts in j['quartos'].items():
-            df2.append({"Time": t2, "Jogo vs": j["oponente"], "Quarto": q, "Pontos": pts})
-    df = pd.DataFrame(df1 + df2)
-
-    st.markdown("### 📊 Gráfico de Pontuação por Quarto")
-    fig = px.bar(df, x="Quarto", y="Pontos", color="Time", barmode="group", title=f"Comparação: {t1} vs {t2}")
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("### 📌 Informações Diretas")
-    st.write("**Média de pontos por quarto:**")
-    media = df.groupby(["Time", "Quarto"])["Pontos"].mean().reset_index()
+    # Média (neste caso é só os próprios dados, mas mantemos estrutura)
+    media = df.groupby("Time")["Pontos"].mean().reset_index()
+    st.markdown("### 🧮 Média de Pontos por Quarto")
     st.dataframe(media)
 
-if st.button("🔎 Analisar e Comparar"):
-    if time1 and time2:
-        comparar_times(time1, time2)
-    else:
-        st.warning("Digite o nome de ambos os times para realizar a comparação.")
+    # Análise simples
+    st.markdown("### 🤖 Insight")
+    if q1_1 > q4_1:
+        st.write(f"➡️ **{time1}** começa forte e perde força no final.")
+    elif q4_1 > q1_1:
+        st.write(f"➡️ **{time1}** melhora ao longo do jogo.")
+    if q1_2 > q4_2:
+        st.write(f"➡️ **{time2}** começa forte e perde força no final.")
+    elif q4_2 > q1_2:
+        st.write(f"➡️ **{time2}** melhora ao longo do jogo.")
